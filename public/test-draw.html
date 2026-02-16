@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fabric.js Drawing Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/6.5.1/fabric.min.js"></script>
+  <style>
+    body { background: #1a1a2e; color: white; font-family: sans-serif; padding: 40px; }
+    h1 { margin-bottom: 20px; }
+    #canvas-wrapper { border: 2px solid #e94560; display: inline-block; }
+    .status { margin-top: 10px; font-size: 14px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <h1>Fabric.js Drawing Test</h1>
+  <p>Click and drag on the red-bordered canvas below to draw. If no line appears, Fabric.js is broken.</p>
+  <div id="canvas-wrapper">
+    <canvas id="test-canvas" width="600" height="400"></canvas>
+  </div>
+  <div class="status" id="status">Initializing...</div>
+  <script>
+    const canvas = new fabric.Canvas('test-canvas', {
+      isDrawingMode: true,
+      width: 600,
+      height: 400,
+    });
+    canvas.freeDrawingBrush.color = '#e94560';
+    canvas.freeDrawingBrush.width = 5;
+    document.getElementById('status').textContent = 
+      'Ready! isDrawingMode=' + canvas.isDrawingMode + 
+      ', brush=' + canvas.freeDrawingBrush.color +
+      ', width=' + canvas.freeDrawingBrush.width;
+    
+    canvas.on('path:created', function(e) {
+      document.getElementById('status').textContent = 'Drew a path with ' + e.path.path.length + ' points!';
+    });
+  </script>
+</body>
+</html>
