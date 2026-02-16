@@ -61,6 +61,8 @@ A powerful, browser-based PDF manipulation tool built with **Next.js 14**, **Typ
 
 This project is optimized for deployment on **Vercel**.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Frealms-overflow%2Fpdf-editor)
+
 1.  Push your code to a GitHub repository.
 2.  Import the project into Vercel.
 3.  Deploy!
