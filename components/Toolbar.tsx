@@ -127,6 +127,26 @@ export default function Toolbar({
                         onClick={() => onColorChange(color)}
                     />
                 ))}
+                
+                {/* Custom Color Picker */}
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <label 
+                        className={`color-btn custom-color-btn ${!COLORS.includes(activeColor) ? 'active' : ''}`}
+                        style={{ 
+                            background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
+                            cursor: 'pointer',
+                            border: activeColor && !COLORS.includes(activeColor) ? `2px solid ${activeColor}` : '2px solid transparent'
+                        }}
+                        title="Custom Color"
+                    >
+                        <input 
+                            type="color" 
+                            value={activeColor}
+                            onChange={(e) => onColorChange(e.target.value)}
+                            style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+                        />
+                    </label>
+                </div>
             </div>
 
             <div className="toolbar-separator" />
@@ -148,7 +168,7 @@ export default function Toolbar({
             <div style={{ marginLeft: 'auto' }}>
                 <button className="btn btn-primary" onClick={onExport}>
                     <Download size={16} />
-                    <span>Export & Download (v2)</span>
+                    <span>Export & Download</span>
                 </button>
             </div>
         </div>

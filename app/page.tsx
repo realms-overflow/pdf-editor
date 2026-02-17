@@ -604,6 +604,34 @@ export default function Home() {
     }
   };
 
+  // ── Pinch to Zoom
+  const touchStartDistRef = useRef(0);
+  const touchStartZoomRef = useRef(zoom);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = d;
+      touchStartZoomRef.current = zoom;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (touchStartDistRef.current > 0) {
+        const scale = d / touchStartDistRef.current;
+        setZoom(Math.min(Math.max(touchStartZoomRef.current * scale, 0.5), 4));
+      }
+    }
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -677,7 +705,12 @@ export default function Home() {
                     canUndo={canUndo}
                     canRedo={canRedo}
                   />
-                  <div className="pdf-viewport">
+                  <div
+                    className="pdf-viewport"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    style={{ touchAction: 'pan-x pan-y' }} // Disable native pinch-zoom
+                  >
                     <PDFViewer
                       file={file}
                       currentPage={currentPage}
