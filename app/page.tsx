@@ -9,20 +9,20 @@ import {
   ChevronRight,
   ZoomIn,
   ZoomOut,
-  Scissors,
+  Trash2,
   Merge,
   Pen,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { mergePDFs, splitPDF, formatFileSize, downloadBlob } from '@/lib/pdfUtils';
+import { mergePDFs, removePagesFromPDF, formatFileSize, downloadBlob } from '@/lib/pdfUtils';
 import Toolbar, { AnnotationTool } from '@/components/Toolbar';
 import MergePanel from '@/components/MergePanel';
-import SplitPanel from '@/components/SplitPanel';
+import RemovePagesPanel from '@/components/RemovePagesPanel';
 
 const PDFViewer = dynamic(() => import('@/components/PDFViewer'), { ssr: false });
 const Sidebar = dynamic(() => import('@/components/Sidebar'), { ssr: false });
 
-type TabType = 'editor' | 'merge' | 'split';
+type TabType = 'editor' | 'merge' | 'remove';
 
 interface Toast {
   id: number;
@@ -39,10 +39,11 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageCount, setPageCount] = useState(0);
-  const [zoom, setZoom] = useState(1.5);
+  const [zoom, setZoom] = useState(1.0); // Will be updated to fit page
+  const [initialFitDone, setInitialFitDone] = useState(false);
 
   const [activeTool, setActiveTool] = useState<AnnotationTool>('select');
-  const [activeColor, setActiveColor] = useState('#ef4444');
+  const [activeColor, setActiveColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(3);
 
   // Fabric.js refs
@@ -88,6 +89,7 @@ export default function Home() {
       setCurrentPage(1);
       prevPageRef.current = 1;
       setActiveTab('editor');
+      setInitialFitDone(false); // Reset auto-fit on new file
       annotationHistoryRef.current.clear();
       undoStackRef.current = [];
       redoStackRef.current = [];
@@ -233,6 +235,37 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, file]);
 
+  // ── Keyboard Delete Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const fc = fabricCanvasRef.current;
+      if (!fc || activeTool !== 'select') return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Prevent default backspace behavior if not editing text
+        const activeObject = fc.getActiveObject();
+        if (activeObject) {
+          if (activeObject.type === 'i-text' && (activeObject as any).isEditing) {
+            return; // Let native text editing handle backspace
+          }
+
+          e.preventDefault();
+          const activeObjects = fc.getActiveObjects();
+          if (activeObjects.length) {
+            activeObjects.forEach(obj => {
+              fc.remove(obj);
+            });
+            fc.discardActiveObject();
+            fc.renderAll();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTool]);
+
   // ── Update tool mode on Fabric canvas
   useEffect(() => {
     const fc = fabricCanvasRef.current;
@@ -265,6 +298,8 @@ export default function Home() {
     } else if (activeTool === 'highlight') {
       fc.isDrawingMode = true;
       const hexToRgba = (hex: string, alpha: number) => {
+        // Handle short hex or invalid hex
+        if (!hex || hex.length < 7) return `rgba(255,0,0,${alpha})`;
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
         const b = parseInt(hex.slice(5, 7), 16);
@@ -443,7 +478,7 @@ export default function Home() {
 
             // Create arrowhead using Triangle for reliable rendering
             const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
-            const headLength = 15;
+            const headLength = 10 + (strokeWidth * 2); // Make arrowhead proportional to strokeWidth
 
             const arrowHead = new fabricModule.Triangle({
               left: x2,
@@ -513,9 +548,25 @@ export default function Home() {
   const handleClear = () => {
     const fc = fabricCanvasRef.current;
     if (!fc) return;
-    saveUndoState();
-    fc.clear();
-    fc.renderAll();
+
+    // Use pushUndo instead of saveUndoState to track history properly
+    if (!isUndoRedoRef.current && fc.getObjects().length > 0) {
+      // Create a snapshot before clearing
+      undoStackRef.current.push(JSON.stringify(fc.toJSON()));
+      redoStackRef.current = [];
+      setCanUndo(true);
+      setCanRedo(false);
+
+      // Prevent object:removed from pushing more states while clearing
+      const wasUndoRedo = isUndoRedoRef.current;
+      isUndoRedoRef.current = true;
+      fc.clear();
+      isUndoRedoRef.current = wasUndoRedo;
+
+      fc.renderAll();
+    }
+
+    // Explicitly update annotation history
     annotationHistoryRef.current.set(currentPage, { objects: JSON.stringify(fc.toJSON()) });
   };
 
@@ -608,6 +659,25 @@ export default function Home() {
   const touchStartDistRef = useRef(0);
   const touchStartZoomRef = useRef(zoom);
 
+  // ── Mouse Wheel Zoom
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const handleWheelZoom = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const zoomChange = e.deltaY * -0.005;
+        setZoom((z) => Math.min(Math.max(z + zoomChange, 0.5), 4));
+      }
+    };
+
+    viewport.addEventListener('wheel', handleWheelZoom, { passive: false });
+    return () => viewport.removeEventListener('wheel', handleWheelZoom);
+  }, []);
+
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 2) {
       const d = Math.hypot(
@@ -646,8 +716,8 @@ export default function Home() {
           <button className={`tab-btn ${activeTab === 'merge' ? 'active' : ''}`} onClick={() => setActiveTab('merge')}>
             <Merge size={15} /><span>Merge</span>
           </button>
-          <button className={`tab-btn ${activeTab === 'split' ? 'active' : ''}`} onClick={() => setActiveTab('split')}>
-            <Scissors size={15} /><span>Split</span>
+          <button className={`tab-btn ${activeTab === 'remove' ? 'active' : ''}`} onClick={() => setActiveTab('remove')}>
+            <Trash2 size={15} /><span>Remove</span>
           </button>
         </nav>
         <div className="header-actions">
@@ -707,6 +777,7 @@ export default function Home() {
                   />
                   <div
                     className="pdf-viewport"
+                    ref={viewportRef}
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     style={{ touchAction: 'pan-x pan-y' }} // Disable native pinch-zoom
@@ -717,10 +788,18 @@ export default function Home() {
                       zoom={zoom}
                       onPageCountChange={setPageCount}
                       onPageChange={setCurrentPage}
+                      onPageLoaded={(dimensions) => {
+                        if (!initialFitDone && viewportRef.current && dimensions) {
+                          const viewportHeight = viewportRef.current.clientHeight - 48; // account for padding
+                          const calculatedZoom = viewportHeight / dimensions.unscaledHeight;
+                          setZoom(Math.min(calculatedZoom, 2)); // Don't zoom in ridiculously far if it's a tiny page
+                          setInitialFitDone(true);
+                        }
+                      }}
                     />
                   </div>
                   <div className="status-bar">
-                    <span>Page {currentPage} of {pageCount}</span>
+                    <span>{currentPage}/{pageCount}</span>
                     <div className="zoom-controls">
                       <button className="btn btn-ghost btn-icon btn-sm" onClick={handlePrevPage} disabled={currentPage <= 1} style={{ opacity: currentPage <= 1 ? 0.3 : 1 }}>
                         <ChevronLeft size={16} />
@@ -741,7 +820,7 @@ export default function Home() {
           </>
         )}
         {activeTab === 'merge' && <MergePanel onToast={showToast} />}
-        {activeTab === 'split' && <SplitPanel onToast={showToast} />}
+        {activeTab === 'remove' && <RemovePagesPanel onToast={showToast} />}
       </div>
 
       {toasts.length > 0 && (

@@ -46,6 +46,32 @@ export async function splitPDF(
     return results;
 }
 
+export async function removePagesFromPDF(
+    file: File,
+    pageIndicesToRemove: number[]
+): Promise<Uint8Array> {
+    const arrayBuffer = await file.arrayBuffer();
+    const srcPdf = await PDFDocument.load(arrayBuffer);
+    const totalPages = srcPdf.getPageCount();
+    const removeSet = new Set(pageIndicesToRemove);
+
+    const newPdf = await PDFDocument.create();
+    const keepIndices = [];
+    for (let i = 0; i < totalPages; i++) {
+        if (!removeSet.has(i)) {
+            keepIndices.push(i);
+        }
+    }
+
+    if (keepIndices.length === 0) {
+        throw new Error('Cannot remove all pages');
+    }
+
+    const copiedPages = await newPdf.copyPages(srcPdf, keepIndices);
+    copiedPages.forEach((page) => newPdf.addPage(page));
+    return newPdf.save();
+}
+
 export async function downloadBlob(data: Uint8Array, filename: string) {
     // Basic validation: Check for PDF header (%PDF)
     if (data.length > 4) {

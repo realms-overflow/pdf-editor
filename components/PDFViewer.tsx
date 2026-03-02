@@ -14,6 +14,7 @@ interface PDFViewerProps {
     zoom: number;
     onPageCountChange: (count: number) => void;
     onPageChange: (page: number) => void;
+    onPageLoaded?: (dimensions: { width: number; height: number; unscaledWidth: number; unscaledHeight: number }) => void;
 }
 
 export default function PDFViewer({
@@ -22,6 +23,7 @@ export default function PDFViewer({
     zoom,
     onPageCountChange,
     onPageChange,
+    onPageLoaded,
 }: PDFViewerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -40,6 +42,7 @@ export default function PDFViewer({
             const page = await pdfDoc.getPage(pageNum);
             const scale = zoom;
             const viewport = page.getViewport({ scale });
+            const unscaledViewport = page.getViewport({ scale: 1 });
 
             const canvas = canvasRef.current;
             if (!canvas) return;
@@ -60,6 +63,14 @@ export default function PDFViewer({
                 renderTaskRef.current = page.render(renderContext as any);
                 await renderTaskRef.current.promise;
                 setDimensions({ width: viewport.width, height: viewport.height });
+                if (onPageLoaded) {
+                    onPageLoaded({
+                        width: viewport.width,
+                        height: viewport.height,
+                        unscaledWidth: unscaledViewport.width,
+                        unscaledHeight: unscaledViewport.height
+                    });
+                }
             } catch (err: unknown) {
                 if (err instanceof Error && err.message !== 'Rendering cancelled') {
                     console.error('Render error:', err);

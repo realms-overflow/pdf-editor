@@ -84,7 +84,6 @@ export default function Toolbar({
                         onClick={() => onToolChange(tool.id)}
                     >
                         {tool.icon}
-                        <span className="tooltip">{tool.label}</span>
                     </button>
                 ))}
             </div>
@@ -99,7 +98,6 @@ export default function Toolbar({
                     style={{ opacity: canUndo ? 1 : 0.4 }}
                 >
                     <Undo2 />
-                    <span className="tooltip">Undo</span>
                 </button>
                 <button
                     className="tool-btn"
@@ -108,11 +106,9 @@ export default function Toolbar({
                     style={{ opacity: canRedo ? 1 : 0.4 }}
                 >
                     <Redo2 />
-                    <span className="tooltip">Redo</span>
                 </button>
                 <button className="tool-btn" onClick={onClear}>
                     <Trash2 />
-                    <span className="tooltip">Clear All</span>
                 </button>
             </div>
 
@@ -127,20 +123,22 @@ export default function Toolbar({
                         onClick={() => onColorChange(color)}
                     />
                 ))}
-                
+
                 {/* Custom Color Picker */}
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <label 
+                    <label
                         className={`color-btn custom-color-btn ${!COLORS.includes(activeColor) ? 'active' : ''}`}
-                        style={{ 
-                            background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
+                        style={{
+                            backgroundImage: 'url(/color-wheel.svg)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
                             cursor: 'pointer',
                             border: activeColor && !COLORS.includes(activeColor) ? `2px solid ${activeColor}` : '2px solid transparent'
                         }}
                         title="Custom Color"
                     >
-                        <input 
-                            type="color" 
+                        <input
+                            type="color"
                             value={activeColor}
                             onChange={(e) => onColorChange(e.target.value)}
                             style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer', width: '100%', height: '100%' }}
@@ -168,7 +166,7 @@ export default function Toolbar({
             <div style={{ marginLeft: 'auto' }}>
                 <button className="btn btn-primary" onClick={onExport}>
                     <Download size={16} />
-                    <span>Export & Download</span>
+                    <span>Download</span>
                 </button>
             </div>
         </div>

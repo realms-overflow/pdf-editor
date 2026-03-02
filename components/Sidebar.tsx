@@ -35,7 +35,7 @@ export default function Sidebar({ file, pageCount, currentPage, onPageChange }: 
             for (let i = 1; i <= pdfDoc.numPages; i++) {
                 if (cancelled) return;
                 const page = await pdfDoc.getPage(i);
-                const viewport = page.getViewport({ scale: 0.3 });
+                const viewport = page.getViewport({ scale: 0.8 });
 
                 const canvas = document.createElement('canvas');
                 canvas.width = viewport.width;
