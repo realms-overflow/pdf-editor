@@ -707,7 +707,7 @@ export default function Home() {
       <header className="app-header">
         <div className="app-logo">
           <FileEdit size={22} />
-          <span>PDF Studio</span>
+          <span>PDF Royale</span>
         </div>
         <nav className="tab-nav">
           <button className={`tab-btn ${activeTab === 'editor' ? 'active' : ''}`} onClick={() => setActiveTab('editor')}>

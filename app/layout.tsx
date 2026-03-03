@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PDF Studio — Edit, Annotate & Merge PDFs",
+  title: "PDF Royale — Edit, Annotate & Merge PDFs",
   description:
     "A premium PDF editor with annotation, merge, and split tools. All processing happens in your browser.",
 };
