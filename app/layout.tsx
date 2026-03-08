@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   description:
     "A premium PDF editor with annotation, merge, and split tools. All processing happens in your browser.",
   icons: {
-    icon: "/favicon.png",
-    apple: "/favicon.png",
+    icon: "/icon.svg",
+    apple: "/icon.svg",
   },
 };
 

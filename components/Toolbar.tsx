@@ -51,7 +51,7 @@ const TOOLS: { id: AnnotationTool; icon: React.ReactNode; label: string }[] = [
     { id: 'select', icon: <MousePointer2 />, label: 'Select' },
     { id: 'hand', icon: <Hand />, label: 'Hand' },
     { id: 'freehand', icon: <Pencil />, label: 'Draw' },
-    { id: 'highlighter' as AnnotationTool, icon: <Highlighter />, label: 'Highlight' },
+    { id: 'highlight', icon: <Highlighter />, label: 'Highlight' },
     { id: 'text', icon: <Type />, label: 'Text' },
     { id: 'rectangle', icon: <Square />, label: 'Rectangle' },
     { id: 'circle', icon: <Circle />, label: 'Circle' },
@@ -59,9 +59,6 @@ const TOOLS: { id: AnnotationTool; icon: React.ReactNode; label: string }[] = [
     { id: 'line', icon: <Minus />, label: 'Line' },
     { id: 'eraser', icon: <Eraser />, label: 'Eraser' },
 ];
-
-// Fix the highlight tool id mapping
-TOOLS[2].id = 'highlight';
 
 export default function Toolbar({
     activeTool,

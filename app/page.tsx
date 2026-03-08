@@ -284,6 +284,7 @@ export default function Home() {
     fc.off('mouse:down');
     fc.off('mouse:move');
     fc.off('mouse:up');
+    fc.off('mouse:over');
 
     if (activeTool === 'select') {
       fc.selection = true;
@@ -292,8 +293,9 @@ export default function Home() {
         obj.evented = true;
       });
     } else if (activeTool === 'freehand') {
+      fc.selection = false;
+      fc.forEachObject((obj: FabricObject) => { obj.selectable = false; obj.evented = false; });
       fc.isDrawingMode = true;
-      // Fabric.js v7 requires explicit PencilBrush creation
       import('fabric').then((fabricModule) => {
         const brush = new fabricModule.PencilBrush(fc);
         brush.color = activeColor;
@@ -301,16 +303,16 @@ export default function Home() {
         fc.freeDrawingBrush = brush;
       });
     } else if (activeTool === 'highlight') {
+      fc.selection = false;
+      fc.forEachObject((obj: FabricObject) => { obj.selectable = false; obj.evented = false; });
       fc.isDrawingMode = true;
       const hexToRgba = (hex: string, alpha: number) => {
-        // Handle short hex or invalid hex
         if (!hex || hex.length < 7) return `rgba(255,0,0,${alpha})`;
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
         const b = parseInt(hex.slice(5, 7), 16);
         return `rgba(${r},${g},${b},${alpha})`;
       };
-      // Fabric.js v7 requires explicit PencilBrush creation
       import('fabric').then((fabricModule) => {
         const brush = new fabricModule.PencilBrush(fc);
         brush.color = hexToRgba(activeColor, 0.35);
@@ -320,43 +322,71 @@ export default function Home() {
     } else if (activeTool === 'eraser') {
       fc.selection = false;
       fc.isDrawingMode = false;
-      // Set crosshair cursor on the canvas
       fc.defaultCursor = 'crosshair';
       fc.hoverCursor = 'crosshair';
+      // Objects must be evented for Fabric to detect targets on mouse events
       fc.forEachObject((obj: FabricObject) => {
         obj.selectable = false;
         obj.evented = true;
         obj.hoverCursor = 'crosshair';
+        obj.perPixelTargetFind = false;
       });
       let isErasing = false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const eraserDown = (opt: any) => {
-        isErasing = true;
-        const target = opt.target;
-        if (target) {
+      const erasedObjects = new Set<FabricObject>();
+
+      const eraseTarget = (target: FabricObject | null | undefined) => {
+        if (target && !erasedObjects.has(target)) {
+          erasedObjects.add(target);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           fc.remove(target as any);
           fc.renderAll();
         }
+      };
+
+      // Fallback: manually find object at pointer using bounding rect
+      const findObjectManually = (e: Event) => {
+        try {
+          const pointer = fc.getScenePoint(e as MouseEvent);
+          const px = pointer.x;
+          const py = pointer.y;
+          const objects = fc.getObjects();
+          for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            if (erasedObjects.has(obj)) continue;
+            const br = obj.getBoundingRect();
+            if (px >= br.left && px <= br.left + br.width &&
+                py >= br.top && py <= br.top + br.height) {
+              return obj;
+            }
+          }
+        } catch { /* ignore */ }
+        return null;
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const eraserDown = (opt: any) => {
+        isErasing = true;
+        erasedObjects.clear();
+        // Try Fabric's built-in target first, then manual fallback
+        const target = opt.target || findObjectManually(opt.e);
+        eraseTarget(target);
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const eraserMove = (opt: any) => {
         if (!isErasing) return;
-        const target = opt.target;
-        if (target) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          fc.remove(target as any);
-          fc.renderAll();
-        }
+        const target = opt.target || findObjectManually(opt.e);
+        eraseTarget(target);
       };
       const eraserUp = () => {
         isErasing = false;
+        erasedObjects.clear();
       };
       fc.on('mouse:down', eraserDown);
       fc.on('mouse:move', eraserMove);
       fc.on('mouse:up', eraserUp);
     } else if (activeTool === 'text') {
       fc.selection = false;
+      fc.forEachObject((obj: FabricObject) => { obj.selectable = false; obj.evented = false; });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const handler = (opt: any) => {
         fc.off('mouse:down', handler);
@@ -380,6 +410,7 @@ export default function Home() {
       fc.on('mouse:down', handler);
     } else if (['rectangle', 'circle', 'line', 'arrow'].includes(activeTool)) {
       fc.selection = false;
+      fc.forEachObject((obj: FabricObject) => { obj.selectable = false; obj.evented = false; });
       let isDrawing = false;
       let startX = 0;
       let startY = 0;
