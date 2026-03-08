@@ -439,6 +439,8 @@ export default function Home() {
               fill: 'transparent',
               stroke: activeColor,
               strokeWidth: strokeWidth,
+              selectable: false,
+              evented: false,
             });
           } else if (activeTool === 'circle') {
             shapeObj = new fabricModule.Ellipse({
@@ -447,12 +449,15 @@ export default function Home() {
               fill: 'transparent',
               stroke: activeColor,
               strokeWidth: strokeWidth,
+              selectable: false,
+              evented: false,
             });
           } else if (activeTool === 'line' || activeTool === 'arrow') {
             shapeObj = new fabricModule.Line([startX, startY, startX, startY], {
               stroke: activeColor,
               strokeWidth: strokeWidth,
-              selectable: true,
+              selectable: false,
+              evented: false,
             });
           }
           if (shapeObj) {
