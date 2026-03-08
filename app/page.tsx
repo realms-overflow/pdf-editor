@@ -324,7 +324,6 @@ export default function Home() {
       fc.isDrawingMode = false;
       fc.defaultCursor = 'crosshair';
       fc.hoverCursor = 'crosshair';
-      // Objects must be evented for Fabric to detect targets on mouse events
       fc.forEachObject((obj: FabricObject) => {
         obj.selectable = false;
         obj.evented = true;
@@ -343,39 +342,48 @@ export default function Home() {
         }
       };
 
-      // Fallback: manually find object at pointer using bounding rect
-      const findObjectManually = (e: Event) => {
-        try {
-          const pointer = fc.getScenePoint(e as MouseEvent);
-          const px = pointer.x;
-          const py = pointer.y;
-          const objects = fc.getObjects();
-          for (let i = objects.length - 1; i >= 0; i--) {
-            const obj = objects[i];
-            if (erasedObjects.has(obj)) continue;
-            const br = obj.getBoundingRect();
-            if (px >= br.left && px <= br.left + br.width &&
-                py >= br.top && py <= br.top + br.height) {
-              return obj;
-            }
-          }
-        } catch { /* ignore */ }
-        return null;
-      };
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const eraserDown = (opt: any) => {
         isErasing = true;
         erasedObjects.clear();
-        // Try Fabric's built-in target first, then manual fallback
-        const target = opt.target || findObjectManually(opt.e);
-        eraseTarget(target);
+        // Try Fabric's built-in target first
+        if (opt.target) {
+          eraseTarget(opt.target);
+          return;
+        }
+        // Manual fallback: check all objects by bounding rect
+        const pointer = fc.getScenePoint(opt.e);
+        const objects = fc.getObjects();
+        for (let i = objects.length - 1; i >= 0; i--) {
+          const obj = objects[i];
+          if (erasedObjects.has(obj)) continue;
+          const br = obj.getBoundingRect();
+          if (pointer.x >= br.left && pointer.x <= br.left + br.width &&
+              pointer.y >= br.top && pointer.y <= br.top + br.height) {
+            eraseTarget(obj);
+            return;
+          }
+        }
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const eraserMove = (opt: any) => {
         if (!isErasing) return;
-        const target = opt.target || findObjectManually(opt.e);
-        eraseTarget(target);
+        if (opt.target) {
+          eraseTarget(opt.target);
+          return;
+        }
+        const pointer = fc.getScenePoint(opt.e);
+        const objects = fc.getObjects();
+        for (let i = objects.length - 1; i >= 0; i--) {
+          const obj = objects[i];
+          if (erasedObjects.has(obj)) continue;
+          const br = obj.getBoundingRect();
+          if (pointer.x >= br.left && pointer.x <= br.left + br.width &&
+              pointer.y >= br.top && pointer.y <= br.top + br.height) {
+            eraseTarget(obj);
+            return;
+          }
+        }
       };
       const eraserUp = () => {
         isErasing = false;
@@ -479,10 +487,14 @@ export default function Home() {
           line.set({ x2: pointer.x, y2: pointer.y });
         }
         fc.renderAll();
+        // Update object coordinates so getBoundingRect() returns correct values
+        if (shapeObj) shapeObj.setCoords();
       };
 
       const upHandler = () => {
         isDrawing = false;
+        // Ensure final coordinates are set for bounding rect detection
+        if (shapeObj) shapeObj.setCoords();
 
         if (activeTool === 'arrow' && shapeObj) {
           const currentShape = shapeObj; // Capture local ref before async clear
@@ -533,6 +545,7 @@ export default function Home() {
               selectable: true,
             });
             fc.add(group);
+            group.setCoords();
             fc.renderAll();
           });
         }
