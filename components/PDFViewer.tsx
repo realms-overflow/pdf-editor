@@ -15,6 +15,7 @@ interface PDFViewerProps {
     onPageCountChange: (count: number) => void;
     onPageChange: (page: number) => void;
     onPageLoaded?: (dimensions: { width: number; height: number; unscaledWidth: number; unscaledHeight: number }) => void;
+    isHandTool?: boolean;
 }
 
 export default function PDFViewer({
@@ -24,6 +25,7 @@ export default function PDFViewer({
     onPageCountChange,
     onPageChange,
     onPageLoaded,
+    isHandTool,
 }: PDFViewerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -128,7 +130,7 @@ export default function PDFViewer({
                     width: dimensions ? dimensions.width + 'px' : '100%',
                     height: dimensions ? dimensions.height + 'px' : '100%',
                     zIndex: 10,
-                    pointerEvents: 'auto',
+                    pointerEvents: isHandTool ? 'none' : 'auto',
                 }}
             />
         </div>

@@ -3,6 +3,7 @@
 import React from 'react';
 import {
     MousePointer2,
+    Hand,
     Pencil,
     Highlighter,
     Type,
@@ -19,6 +20,7 @@ import {
 
 export type AnnotationTool =
     | 'select'
+    | 'hand'
     | 'freehand'
     | 'highlight'
     | 'text'
@@ -47,6 +49,7 @@ const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'
 
 const TOOLS: { id: AnnotationTool; icon: React.ReactNode; label: string }[] = [
     { id: 'select', icon: <MousePointer2 />, label: 'Select' },
+    { id: 'hand', icon: <Hand />, label: 'Hand' },
     { id: 'freehand', icon: <Pencil />, label: 'Draw' },
     { id: 'highlighter' as AnnotationTool, icon: <Highlighter />, label: 'Highlight' },
     { id: 'text', icon: <Type />, label: 'Text' },

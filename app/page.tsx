@@ -58,6 +58,11 @@ export default function Home() {
   const isUndoRedoRef = useRef(false);
   const prevPageRef = useRef(1);
 
+  // Hand tool panning state
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const scrollStartRef = useRef({ x: 0, y: 0 });
+
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -780,7 +785,30 @@ export default function Home() {
                     ref={viewportRef}
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
-                    style={{ touchAction: 'pan-x pan-y' }} // Disable native pinch-zoom
+                    style={{
+                      touchAction: 'pan-x pan-y',
+                      cursor: activeTool === 'hand' ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
+                    }}
+                    onMouseDown={(e) => {
+                      if (activeTool !== 'hand') return;
+                      isPanningRef.current = true;
+                      panStartRef.current = { x: e.clientX, y: e.clientY };
+                      const vp = viewportRef.current;
+                      if (vp) scrollStartRef.current = { x: vp.scrollLeft, y: vp.scrollTop };
+                      e.preventDefault();
+                    }}
+                    onMouseMove={(e) => {
+                      if (!isPanningRef.current) return;
+                      const dx = e.clientX - panStartRef.current.x;
+                      const dy = e.clientY - panStartRef.current.y;
+                      const vp = viewportRef.current;
+                      if (vp) {
+                        vp.scrollLeft = scrollStartRef.current.x - dx;
+                        vp.scrollTop = scrollStartRef.current.y - dy;
+                      }
+                    }}
+                    onMouseUp={() => { isPanningRef.current = false; }}
+                    onMouseLeave={() => { isPanningRef.current = false; }}
                   >
                     <PDFViewer
                       file={file}
@@ -790,12 +818,13 @@ export default function Home() {
                       onPageChange={setCurrentPage}
                       onPageLoaded={(dimensions) => {
                         if (!initialFitDone && viewportRef.current && dimensions) {
-                          const viewportHeight = viewportRef.current.clientHeight - 48; // account for padding
+                          const viewportHeight = viewportRef.current.clientHeight - 48;
                           const calculatedZoom = viewportHeight / dimensions.unscaledHeight;
-                          setZoom(Math.min(calculatedZoom, 2)); // Don't zoom in ridiculously far if it's a tiny page
+                          setZoom(Math.min(calculatedZoom, 2));
                           setInitialFitDone(true);
                         }
                       }}
+                      isHandTool={activeTool === 'hand'}
                     />
                   </div>
                   <div className="status-bar">
