@@ -283,11 +283,11 @@ export default function Home() {
     fc.selection = true;
     fc.defaultCursor = 'default';
     fc.hoverCursor = 'move';
-    // Helper to get coordinates that account for CSS zoom
+    // Fabric automatically accounts for CSS transform scaling via getBoundingClientRect math,
+    // so `getScenePoint` already returns the correct 1x unscaled coordinate.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getScaledPoint = (e: any) => {
-      const pointer = fc!.getScenePoint(e);
-      return { x: pointer.x / zoom, y: pointer.y / zoom };
+      return fc!.getScenePoint(e);
     };
 
     fc.off('mouse:down');
