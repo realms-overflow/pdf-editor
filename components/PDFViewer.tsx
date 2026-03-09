@@ -30,7 +30,7 @@ export default function PDFViewer({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
     const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
-    const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
+    const [dimensions, setDimensions] = useState<{ width: number; height: number; unscaledWidth: number; unscaledHeight: number } | null>(null);
 
     const renderPage = useCallback(
         async (pageNum: number) => {
@@ -64,7 +64,12 @@ export default function PDFViewer({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 renderTaskRef.current = page.render(renderContext as any);
                 await renderTaskRef.current.promise;
-                setDimensions({ width: viewport.width, height: viewport.height });
+                setDimensions({ 
+                    width: viewport.width, 
+                    height: viewport.height,
+                    unscaledWidth: unscaledViewport.width,
+                    unscaledHeight: unscaledViewport.height
+                });
                 if (onPageLoaded) {
                     onPageLoaded({
                         width: viewport.width,
@@ -121,14 +126,17 @@ export default function PDFViewer({
             {/* Annotation overlay — Fabric.js will be mounted here by page.tsx */}
             <div
                 id="annotation-container"
-                data-width={dimensions?.width || 0}
-                data-height={dimensions?.height || 0}
+                data-width={dimensions?.unscaledWidth || 0}
+                data-height={dimensions?.unscaledHeight || 0}
+                data-zoom={zoom}
                 style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
-                    width: dimensions ? dimensions.width + 'px' : '100%',
-                    height: dimensions ? dimensions.height + 'px' : '100%',
+                    width: dimensions ? dimensions.unscaledWidth + 'px' : '100%',
+                    height: dimensions ? dimensions.unscaledHeight + 'px' : '100%',
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'top left',
                     zIndex: 10,
                     pointerEvents: isHandTool ? 'none' : 'auto',
                 }}

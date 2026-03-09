@@ -145,19 +145,11 @@ export default function Home() {
         return;
       }
 
-      // Already initialized? Just handle resize
+      // Already initialized? Just handle resize (only happens if the PDF file changes, zoom is CSS now)
       if (initLockRef.current && fabricCanvasRef.current) {
         const fc = fabricCanvasRef.current;
-        const currentZoom = zoomRef.current;
-        if (fc.width !== w || fc.height !== h || fc.getZoom() !== currentZoom) {
+        if (fc.width !== w || fc.height !== h) {
           fc.setDimensions({ width: w, height: h });
-          
-          // Manually set viewportTransform to ensure it actually applies even if fc.zoom already equals currentZoom
-          // Fabric's setZoom() might short-circuit if the zoom value hasn't "changed", 
-          // even if setDimensions reset the transform underneath it.
-          fc.viewportTransform = [currentZoom, 0, 0, currentZoom, 0, 0];
-          fc.setZoom(currentZoom); // Keep internal state synced just in case
-          
           fc.renderAll();
         }
         // Keep watching for dimension changes
@@ -188,10 +180,6 @@ export default function Home() {
 
       fabricCanvasRef.current = fc;
       setFabricReady(true);
-      
-      const currentZoom = zoomRef.current;
-      fc.viewportTransform = [currentZoom, 0, 0, currentZoom, 0, 0];
-      fc.setZoom(currentZoom);
 
       // Track changes for undo — save state BEFORE change (snapshot approach)
       let lastSnapshot = JSON.stringify(fc.toJSON());
@@ -295,6 +283,13 @@ export default function Home() {
     fc.selection = true;
     fc.defaultCursor = 'default';
     fc.hoverCursor = 'move';
+    // Helper to get coordinates that account for CSS zoom
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const getScaledPoint = (e: any) => {
+      const pointer = fc!.getScenePoint(e);
+      return { x: pointer.x / zoom, y: pointer.y / zoom };
+    };
+
     fc.off('mouse:down');
     fc.off('mouse:move');
     fc.off('mouse:up');
@@ -366,7 +361,7 @@ export default function Home() {
           return;
         }
         // Manual fallback: check all objects by bounding rect
-        const pointer = fc.getScenePoint(opt.e);
+        const pointer = getScaledPoint(opt.e);
         const objects = fc.getObjects();
         for (let i = objects.length - 1; i >= 0; i--) {
           const obj = objects[i];
@@ -386,7 +381,7 @@ export default function Home() {
           eraseTarget(opt.target);
           return;
         }
-        const pointer = fc.getScenePoint(opt.e);
+        const pointer = getScaledPoint(opt.e);
         const objects = fc.getObjects();
         for (let i = objects.length - 1; i >= 0; i--) {
           const obj = objects[i];
@@ -413,7 +408,7 @@ export default function Home() {
       const handler = (opt: any) => {
         fc.off('mouse:down', handler);
         import('fabric').then((fabricModule) => {
-          const pointer = fc.getScenePoint(opt.e);
+          const pointer = getScaledPoint(opt.e);
           const text = new fabricModule.IText('', {
             left: pointer.x,
             top: pointer.y,
@@ -441,7 +436,7 @@ export default function Home() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const downHandler = (opt: any) => {
         isDrawing = true;
-        const pointer = fc.getScenePoint(opt.e);
+        const pointer = getScaledPoint(opt.e);
         startX = pointer.x;
         startY = pointer.y;
 
@@ -483,7 +478,7 @@ export default function Home() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const moveHandler = (opt: any) => {
         if (!isDrawing || !shapeObj) return;
-        const pointer = fc.getScenePoint(opt.e);
+        const pointer = getScaledPoint(opt.e);
 
         if (activeTool === 'rectangle') {
           const rect = shapeObj as unknown as Rect;
