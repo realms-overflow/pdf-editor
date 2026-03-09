@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <canvas id="c"></canvas>
+  <script type="module">
+    import * as fabric from 'https://cdn.jsdelivr.net/npm/fabric@7.1.0/index.mjs';
+    const canvas = new fabric.Canvas('c', { width: 500, height: 500 });
+    const rect = new fabric.Rect({ left: 100, top: 100, width: 50, height: 50, fill: 'red' });
+    canvas.add(rect);
+    
+    setTimeout(() => {
+      // simulate zoom 2.0
+      canvas.setDimensions({ width: 1000, height: 1000 });
+      canvas.setZoom(2.0);
+      canvas.renderAll();
+      console.log('rect left/top after zoom:', rect.left, rect.top);
+    }, 1000);
+  </script>
+</body>
+</html>

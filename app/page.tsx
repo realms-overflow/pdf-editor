@@ -151,7 +151,13 @@ export default function Home() {
         const currentZoom = zoomRef.current;
         if (fc.width !== w || fc.height !== h || fc.getZoom() !== currentZoom) {
           fc.setDimensions({ width: w, height: h });
-          fc.setZoom(currentZoom);
+          
+          // Manually set viewportTransform to ensure it actually applies even if fc.zoom already equals currentZoom
+          // Fabric's setZoom() might short-circuit if the zoom value hasn't "changed", 
+          // even if setDimensions reset the transform underneath it.
+          fc.viewportTransform = [currentZoom, 0, 0, currentZoom, 0, 0];
+          fc.setZoom(currentZoom); // Keep internal state synced just in case
+          
           fc.renderAll();
         }
         // Keep watching for dimension changes
@@ -182,6 +188,10 @@ export default function Home() {
 
       fabricCanvasRef.current = fc;
       setFabricReady(true);
+      
+      const currentZoom = zoomRef.current;
+      fc.viewportTransform = [currentZoom, 0, 0, currentZoom, 0, 0];
+      fc.setZoom(currentZoom);
 
       // Track changes for undo — save state BEFORE change (snapshot approach)
       let lastSnapshot = JSON.stringify(fc.toJSON());
