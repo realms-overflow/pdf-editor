@@ -2,6 +2,6 @@
   "/_global-error/page": "/_global-error",
   "/_not-found/page": "/_not-found",
   "/api/download/route": "/api/download",
-  "/icon.png/route": "/icon.png",
+  "/icon.svg/route": "/icon.svg",
   "/page": "/"
 }

@@ -47,10 +47,10 @@
       "namedRegex": "^/api/download(?:/)?$"
     },
     {
-      "page": "/icon.png",
-      "regex": "^/icon\\.png(?:/)?$",
+      "page": "/icon.svg",
+      "regex": "^/icon\\.svg(?:/)?$",
       "routeKeys": {},
-      "namedRegex": "^/icon\\.png(?:/)?$"
+      "namedRegex": "^/icon\\.svg(?:/)?$"
     }
   ],
   "dataRoutes": [],

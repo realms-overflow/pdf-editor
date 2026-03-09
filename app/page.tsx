@@ -40,6 +40,8 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageCount, setPageCount] = useState(0);
   const [zoom, setZoom] = useState(1.0); // Will be updated to fit page
+  const zoomRef = useRef(zoom);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   const [initialFitDone, setInitialFitDone] = useState(false);
 
   const [activeTool, setActiveTool] = useState<AnnotationTool>('select');
@@ -146,12 +148,14 @@ export default function Home() {
       // Already initialized? Just handle resize
       if (initLockRef.current && fabricCanvasRef.current) {
         const fc = fabricCanvasRef.current;
-        if (fc.width !== w || fc.height !== h) {
+        const currentZoom = zoomRef.current;
+        if (fc.width !== w || fc.height !== h || fc.getZoom() !== currentZoom) {
           fc.setDimensions({ width: w, height: h });
+          fc.setZoom(currentZoom);
           fc.renderAll();
         }
         // Keep watching for dimension changes
-        if (!cancelled) setTimeout(() => { if (!cancelled) requestAnimationFrame(tryInit); }, 500);
+        if (!cancelled) setTimeout(() => { if (!cancelled) requestAnimationFrame(tryInit); }, 100);
         return;
       }
 

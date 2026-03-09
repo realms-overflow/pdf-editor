@@ -1,3 +1,3 @@
-module.exports=[95091,a=>{"use strict";var b=a.i(52722);function c({children:a}){return(0,b.jsx)("html",{lang:"en",children:(0,b.jsx)("body",{children:a})})}a.s(["default",()=>c,"metadata",0,{title:"PDF Royale — Edit, Annotate & Merge PDFs",description:"A premium PDF editor with annotation, merge, and split tools. All processing happens in your browser.",icons:{icon:"/favicon.png",apple:"/favicon.png"}}])}];
+module.exports=[95091,a=>{"use strict";var b=a.i(52722);function c({children:a}){return(0,b.jsx)("html",{lang:"en",children:(0,b.jsx)("body",{children:a})})}a.s(["default",()=>c,"metadata",0,{title:"PDF Royale — Edit, Annotate & Merge PDFs",description:"A premium PDF editor with annotation, merge, and split tools. All processing happens in your browser.",icons:{icon:"/icon.svg",apple:"/icon.svg"}}])}];
 
 //# sourceMappingURL=_gemini_antigravity_scratch_pdf-editor_app_layout_tsx_856381b3._.js.map
