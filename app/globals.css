@@ -810,12 +810,14 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  text-align: center;
 }
 
 .panel .panel-description {
   color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 24px;
+  text-align: center;
 }
 
 .file-list {
@@ -850,6 +852,7 @@ body {
 .file-item-info {
   flex: 1;
   min-width: 0;
+  text-align: center;
 }
 
 .file-item-name {
@@ -874,7 +877,7 @@ body {
 .panel-actions {
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .panel-dropzone {
@@ -1043,6 +1046,7 @@ body {
   justify-content: center;
   padding: 40px;
   color: var(--text-tertiary);
+  text-align: center;
   gap: 8px;
 }
 
