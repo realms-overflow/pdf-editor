@@ -1,7 +1,8 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/file-pen.svg" width="80" height="80" alt="PDF Royale Logo"/>
+  <img src="https://api.iconify.design/lucide:file-pen.svg?color=%238b5cf6" width="80" height="80" alt="PDF Royale Logo"/>
   <h1>PDF Royale 👑</h1>
   <p><strong>A Premium, Privacy-First Browser-Based PDF Editor</strong></p>
+  <p>🌐 <strong>Live Demo: <a href="https://pdfroyale.com">pdfroyale.com</a></strong></p>
   <p>
     <img src="https://img.shields.io/badge/Next.js_14-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
     <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
@@ -10,7 +11,7 @@
 
 ---
 
-**PDF Royale** is the ultimate tool for viewing, annotating, merging, and manipulating your PDFs directly in your browser. Built with a stunning modern interface and a focus on user privacy—everything runs locally. No subscriptions. No uploading documents to servers. 
+**PDF Royale** is the ultimate tool for viewing, annotating, merging, and manipulating your PDFs directly in your browser. Experience it live at **[pdfroyale.com](https://pdfroyale.com)**. Built with a stunning modern interface and a focus on user privacy—everything runs locally. No subscriptions. No uploading documents to servers. 
 
 ## ✨ Key Features
 - **🔒 100% Client-Side Privacy:** All rendering and operations happen locally using WebAssembly.
