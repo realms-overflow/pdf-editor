@@ -795,12 +795,16 @@ export default function Home() {
     let pinchStartZoom = 1;
 
     const onTouchStart = (e: TouchEvent) => {
+      // capture: true means this fires BEFORE Fabric's canvas listeners
+      // stopPropagation prevents touch from reaching Fabric — finger never draws
+      e.stopPropagation();
       if (e.touches.length === 2) {
         pinchStartDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
         pinchStartZoom = zoomRef.current;
+        isPanningRef.current = false;
       } else if (e.touches.length === 1) {
         isPanningRef.current = true;
         panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -809,6 +813,7 @@ export default function Home() {
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      e.stopPropagation();
       if (e.touches.length === 2 && pinchStartDist > 0) {
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
@@ -826,22 +831,23 @@ export default function Home() {
     };
 
     const onTouchEnd = (e: TouchEvent) => {
+      e.stopPropagation();
       if (e.touches.length < 2) pinchStartDist = 0;
       if (e.touches.length === 0) isPanningRef.current = false;
     };
 
     viewport.addEventListener('wheel', handleWheel, { passive: false });
-    viewport.addEventListener('touchstart', onTouchStart, { passive: false });
-    viewport.addEventListener('touchmove', onTouchMove, { passive: false });
-    viewport.addEventListener('touchend', onTouchEnd);
-    viewport.addEventListener('touchcancel', onTouchEnd);
+    viewport.addEventListener('touchstart', onTouchStart, { capture: true, passive: false });
+    viewport.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+    viewport.addEventListener('touchend', onTouchEnd, { capture: true });
+    viewport.addEventListener('touchcancel', onTouchEnd, { capture: true });
 
     return () => {
       viewport.removeEventListener('wheel', handleWheel);
-      viewport.removeEventListener('touchstart', onTouchStart);
-      viewport.removeEventListener('touchmove', onTouchMove);
-      viewport.removeEventListener('touchend', onTouchEnd);
-      viewport.removeEventListener('touchcancel', onTouchEnd);
+      viewport.removeEventListener('touchstart', onTouchStart, { capture: true });
+      viewport.removeEventListener('touchmove', onTouchMove, { capture: true });
+      viewport.removeEventListener('touchend', onTouchEnd, { capture: true });
+      viewport.removeEventListener('touchcancel', onTouchEnd, { capture: true });
     };
   }, [file]); // re-attach when file loads (viewport doesn't exist before file is opened)
 
