@@ -70,6 +70,7 @@ export default function Home() {
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
   const scrollStartRef = useRef({ x: 0, y: 0 });
+  const isPinchingRef = useRef(false);
 
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -188,17 +189,19 @@ export default function Home() {
       fabricCanvasRef.current = fc;
       setFabricReady(true);
 
-      // Prevent Fabric from drawing with finger touches — only stylus (pen) should draw.
-      // Touch events (touchstart/move) still bubble up for our pan/pinch handler.
+      // Block finger pointer events on Fabric's canvas ONLY during pinch gestures.
+      // This prevents accidental drawing while pinch-zooming but allows normal finger drawing.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const upperCanvas = (fc as any).upperCanvasEl as HTMLCanvasElement | undefined;
       if (upperCanvas) {
-        const blockFingerPointer = (e: PointerEvent) => {
-          if (e.pointerType === 'touch') e.stopImmediatePropagation();
+        const blockDuringPinch = (e: PointerEvent) => {
+          if (isPinchingRef.current && e.pointerType === 'touch') {
+            e.stopImmediatePropagation();
+          }
         };
-        upperCanvas.addEventListener('pointerdown', blockFingerPointer, { capture: true });
-        upperCanvas.addEventListener('pointermove', blockFingerPointer, { capture: true });
-        upperCanvas.addEventListener('pointerup', blockFingerPointer, { capture: true });
+        upperCanvas.addEventListener('pointerdown', blockDuringPinch, { capture: true });
+        upperCanvas.addEventListener('pointermove', blockDuringPinch, { capture: true });
+        upperCanvas.addEventListener('pointerup', blockDuringPinch, { capture: true });
       }
 
       // Track changes for undo — save state BEFORE change (snapshot approach)
@@ -789,51 +792,87 @@ export default function Home() {
       }
     };
 
-    // Touch events are finger-only (stylus fires pointer events, not touch events)
-    // This gives us a clean separation: finger = pan/zoom, stylus = draw
+    // Pinch zoom: intercept multi-touch ONLY, let single-finger through for drawing.
+    // Single-finger panning is handled only when hand tool is active.
     let pinchStartDist = 0;
     let pinchStartZoom = 1;
+    let savedDrawingMode = false;
+    let objectCountBeforePinch = 0;
 
     const onTouchStart = (e: TouchEvent) => {
-      // capture: true means this fires BEFORE Fabric's canvas listeners
-      // stopPropagation prevents touch from reaching Fabric — finger never draws
-      e.stopPropagation();
-      if (e.touches.length === 2) {
+      if (e.touches.length >= 2) {
+        // Pinch detected — block events from reaching Fabric
+        isPinchingRef.current = true;
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Disable Fabric drawing during pinch and track objects for cleanup
+        const fc = fabricCanvasRef.current;
+        if (fc) {
+          savedDrawingMode = fc.isDrawingMode;
+          objectCountBeforePinch = fc.getObjects().length;
+          fc.isDrawingMode = false;
+        }
+
         pinchStartDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
         pinchStartZoom = zoomRef.current;
         isPanningRef.current = false;
-      } else if (e.touches.length === 1) {
+      } else if (e.touches.length === 1 && activeToolRef.current === 'hand') {
+        // Hand tool: single finger pans the viewport
+        e.stopPropagation();
         isPanningRef.current = true;
         panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         scrollStartRef.current = { x: viewport.scrollLeft, y: viewport.scrollTop };
       }
+      // Other single-finger touches: let through to Fabric for drawing
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      e.stopPropagation();
-      if (e.touches.length === 2 && pinchStartDist > 0) {
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        setZoom(Math.min(Math.max(pinchStartZoom * dist / pinchStartDist, 0.5), 4));
+      if (isPinchingRef.current && e.touches.length >= 2) {
+        e.stopPropagation();
         e.preventDefault();
-      } else if (e.touches.length === 1 && isPanningRef.current) {
+        if (pinchStartDist > 0) {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          setZoom(Math.min(Math.max(pinchStartZoom * dist / pinchStartDist, 0.5), 4));
+        }
+      } else if (isPanningRef.current && e.touches.length === 1) {
+        e.stopPropagation();
+        e.preventDefault();
         const dx = e.touches[0].clientX - panStartRef.current.x;
         const dy = e.touches[0].clientY - panStartRef.current.y;
         viewport.scrollLeft = scrollStartRef.current.x - dx;
         viewport.scrollTop = scrollStartRef.current.y - dy;
-        e.preventDefault();
       }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      e.stopPropagation();
       if (e.touches.length < 2) pinchStartDist = 0;
-      if (e.touches.length === 0) isPanningRef.current = false;
+      if (e.touches.length === 0) {
+        if (isPinchingRef.current) {
+          isPinchingRef.current = false;
+          e.stopPropagation();
+          // Restore Fabric drawing mode and clean up accidental strokes from first finger
+          const fc = fabricCanvasRef.current;
+          if (fc) {
+            const currentObjects = fc.getObjects();
+            while (currentObjects.length > objectCountBeforePinch) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              fc.remove(currentObjects[currentObjects.length - 1] as any);
+            }
+            if (savedDrawingMode) {
+              fc.isDrawingMode = true;
+            }
+            fc.renderAll();
+          }
+        }
+        isPanningRef.current = false;
+      }
     };
 
     viewport.addEventListener('wheel', handleWheel, { passive: false });
