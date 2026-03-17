@@ -188,6 +188,19 @@ export default function Home() {
       fabricCanvasRef.current = fc;
       setFabricReady(true);
 
+      // Prevent Fabric from drawing with finger touches — only stylus (pen) should draw.
+      // Touch events (touchstart/move) still bubble up for our pan/pinch handler.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const upperCanvas = (fc as any).upperCanvasEl as HTMLCanvasElement | undefined;
+      if (upperCanvas) {
+        const blockFingerPointer = (e: PointerEvent) => {
+          if (e.pointerType === 'touch') e.stopImmediatePropagation();
+        };
+        upperCanvas.addEventListener('pointerdown', blockFingerPointer, { capture: true });
+        upperCanvas.addEventListener('pointermove', blockFingerPointer, { capture: true });
+        upperCanvas.addEventListener('pointerup', blockFingerPointer, { capture: true });
+      }
+
       // Track changes for undo — save state BEFORE change (snapshot approach)
       let lastSnapshot = JSON.stringify(fc.toJSON());
 
@@ -776,89 +789,59 @@ export default function Home() {
       }
     };
 
-    // Pointer tracking for pinch zoom + touch/stylus pan
-    const pointers = new Map<number, { x: number; y: number; type: string }>();
-    const activePens = new Set<number>();
+    // Touch events are finger-only (stylus fires pointer events, not touch events)
+    // This gives us a clean separation: finger = pan/zoom, stylus = draw
     let pinchStartDist = 0;
     let pinchStartZoom = 1;
 
-    const getTouches = () => Array.from(pointers.values()).filter((p) => p.type === 'touch');
-    const getPinchDist = () => {
-      const pts = getTouches();
-      if (pts.length < 2) return 0;
-      return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    };
-
-    const onPointerDown = (e: PointerEvent) => {
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
-
-      if (e.pointerType === 'pen') {
-        activePens.add(e.pointerId);
-        return; // let Fabric handle pen drawing
-      }
-      if (e.pointerType === 'mouse') return; // handled by React mouse events
-
-      const touches = getTouches();
-      if (touches.length >= 2) {
-        // Pinch zoom — intercept so Fabric doesn't draw with second finger
-        pinchStartDist = getPinchDist();
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
         pinchStartZoom = zoomRef.current;
-        e.stopPropagation();
-        e.preventDefault();
-      } else {
-        // Single finger touch always pans — stylus draws, finger navigates
-        const shouldPan = true;
-        if (shouldPan) {
-          isPanningRef.current = true;
-          panStartRef.current = { x: e.clientX, y: e.clientY };
-          scrollStartRef.current = { x: viewport.scrollLeft, y: viewport.scrollTop };
-          e.stopPropagation();
-          e.preventDefault();
-        }
+      } else if (e.touches.length === 1) {
+        isPanningRef.current = true;
+        panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        scrollStartRef.current = { x: viewport.scrollLeft, y: viewport.scrollTop };
       }
     };
 
-    const onPointerMove = (e: PointerEvent) => {
-      if (!pointers.has(e.pointerId)) return;
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
-      if (e.pointerType === 'pen' || e.pointerType === 'mouse') return;
-
-      const touches = getTouches();
-      if (touches.length >= 2 && pinchStartDist > 0) {
-        const scale = getPinchDist() / pinchStartDist;
-        setZoom(Math.min(Math.max(pinchStartZoom * scale, 0.5), 4));
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchStartDist > 0) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        setZoom(Math.min(Math.max(pinchStartZoom * dist / pinchStartDist, 0.5), 4));
         e.preventDefault();
-      } else if (touches.length === 1 && isPanningRef.current) {
-        const dx = e.clientX - panStartRef.current.x;
-        const dy = e.clientY - panStartRef.current.y;
+      } else if (e.touches.length === 1 && isPanningRef.current) {
+        const dx = e.touches[0].clientX - panStartRef.current.x;
+        const dy = e.touches[0].clientY - panStartRef.current.y;
         viewport.scrollLeft = scrollStartRef.current.x - dx;
         viewport.scrollTop = scrollStartRef.current.y - dy;
         e.preventDefault();
       }
     };
 
-    const onPointerUp = (e: PointerEvent) => {
-      pointers.delete(e.pointerId);
-      if (e.pointerType === 'pen') {
-        activePens.delete(e.pointerId);
-      } else if (e.pointerType === 'touch') {
-        if (getTouches().length < 2) pinchStartDist = 0;
-        if (getTouches().length === 0) isPanningRef.current = false;
-      }
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchStartDist = 0;
+      if (e.touches.length === 0) isPanningRef.current = false;
     };
 
     viewport.addEventListener('wheel', handleWheel, { passive: false });
-    viewport.addEventListener('pointerdown', onPointerDown, { capture: true, passive: false });
-    viewport.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
-    viewport.addEventListener('pointerup', onPointerUp, { capture: true });
-    viewport.addEventListener('pointercancel', onPointerUp, { capture: true });
+    viewport.addEventListener('touchstart', onTouchStart, { passive: false });
+    viewport.addEventListener('touchmove', onTouchMove, { passive: false });
+    viewport.addEventListener('touchend', onTouchEnd);
+    viewport.addEventListener('touchcancel', onTouchEnd);
 
     return () => {
       viewport.removeEventListener('wheel', handleWheel);
-      viewport.removeEventListener('pointerdown', onPointerDown, { capture: true });
-      viewport.removeEventListener('pointermove', onPointerMove, { capture: true });
-      viewport.removeEventListener('pointerup', onPointerUp, { capture: true });
-      viewport.removeEventListener('pointercancel', onPointerUp, { capture: true });
+      viewport.removeEventListener('touchstart', onTouchStart);
+      viewport.removeEventListener('touchmove', onTouchMove);
+      viewport.removeEventListener('touchend', onTouchEnd);
+      viewport.removeEventListener('touchcancel', onTouchEnd);
     };
   }, [file]); // re-attach when file loads (viewport doesn't exist before file is opened)
 
