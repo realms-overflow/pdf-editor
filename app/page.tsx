@@ -44,6 +44,10 @@ export default function Home() {
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   const [initialFitDone, setInitialFitDone] = useState(false);
 
+  const [showSidebar, setShowSidebar] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 768 : true
+  );
+
   const [activeTool, setActiveTool] = useState<AnnotationTool>('select');
   const activeToolRef = useRef<AnnotationTool>('select');
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
@@ -757,77 +761,106 @@ export default function Home() {
     }
   };
 
-  // ── Mouse Wheel Zoom + Touch (Pinch Zoom & Hand Tool Pan)
+  // ── Wheel Zoom + Pointer-based Pan & Pinch (touch / stylus-aware)
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
-    const handleWheelZoom = (e: WheelEvent) => {
+    // Wheel zoom
+    const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const zoomChange = e.deltaY * -0.005;
-        setZoom((z) => Math.min(Math.max(z + zoomChange, 0.5), 4));
+        setZoom((z) => Math.min(Math.max(z + e.deltaY * -0.005, 0.5), 4));
       }
     };
 
+    // Pointer tracking for pinch zoom + touch/stylus pan
+    const pointers = new Map<number, { x: number; y: number; type: string }>();
+    const activePens = new Set<number>();
     let pinchStartDist = 0;
     let pinchStartZoom = 1;
-    let isPinching = false;
 
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        isPinching = true;
-        pinchStartDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
+    const getTouches = () => Array.from(pointers.values()).filter((p) => p.type === 'touch');
+    const getPinchDist = () => {
+      const pts = getTouches();
+      if (pts.length < 2) return 0;
+      return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+
+      if (e.pointerType === 'pen') {
+        activePens.add(e.pointerId);
+        return; // let Fabric handle pen drawing
+      }
+      if (e.pointerType === 'mouse') return; // handled by React mouse events
+
+      const touches = getTouches();
+      if (touches.length >= 2) {
+        // Pinch zoom — intercept so Fabric doesn't draw with second finger
+        pinchStartDist = getPinchDist();
         pinchStartZoom = zoomRef.current;
+        e.stopPropagation();
         e.preventDefault();
-      } else if (e.touches.length === 1 && activeToolRef.current === 'hand') {
-        isPanningRef.current = true;
-        panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        scrollStartRef.current = { x: viewport.scrollLeft, y: viewport.scrollTop };
+      } else {
+        // Single finger touch always pans — stylus draws, finger navigates
+        const shouldPan = true;
+        if (shouldPan) {
+          isPanningRef.current = true;
+          panStartRef.current = { x: e.clientX, y: e.clientY };
+          scrollStartRef.current = { x: viewport.scrollLeft, y: viewport.scrollTop };
+          e.stopPropagation();
+          e.preventDefault();
+        }
       }
     };
 
-    const onTouchMove = (e: TouchEvent) => {
-      if (isPinching && e.touches.length === 2) {
-        const d = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        if (pinchStartDist > 0) {
-          const scale = d / pinchStartDist;
-          setZoom(Math.min(Math.max(pinchStartZoom * scale, 0.5), 4));
-        }
+    const onPointerMove = (e: PointerEvent) => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+      if (e.pointerType === 'pen' || e.pointerType === 'mouse') return;
+
+      const touches = getTouches();
+      if (touches.length >= 2 && pinchStartDist > 0) {
+        const scale = getPinchDist() / pinchStartDist;
+        setZoom(Math.min(Math.max(pinchStartZoom * scale, 0.5), 4));
         e.preventDefault();
-      } else if (!isPinching && isPanningRef.current && e.touches.length === 1) {
-        const dx = e.touches[0].clientX - panStartRef.current.x;
-        const dy = e.touches[0].clientY - panStartRef.current.y;
+      } else if (touches.length === 1 && isPanningRef.current) {
+        const dx = e.clientX - panStartRef.current.x;
+        const dy = e.clientY - panStartRef.current.y;
         viewport.scrollLeft = scrollStartRef.current.x - dx;
         viewport.scrollTop = scrollStartRef.current.y - dy;
         e.preventDefault();
       }
     };
 
-    const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) isPinching = false;
-      if (e.touches.length === 0) isPanningRef.current = false;
+    const onPointerUp = (e: PointerEvent) => {
+      pointers.delete(e.pointerId);
+      if (e.pointerType === 'pen') {
+        activePens.delete(e.pointerId);
+      } else if (e.pointerType === 'touch') {
+        if (getTouches().length < 2) pinchStartDist = 0;
+        if (getTouches().length === 0) isPanningRef.current = false;
+      }
     };
 
-    viewport.addEventListener('wheel', handleWheelZoom, { passive: false });
-    viewport.addEventListener('touchstart', onTouchStart, { passive: false });
-    viewport.addEventListener('touchmove', onTouchMove, { passive: false });
-    viewport.addEventListener('touchend', onTouchEnd);
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    viewport.addEventListener('pointerdown', onPointerDown, { capture: true, passive: false });
+    viewport.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
+    viewport.addEventListener('pointerup', onPointerUp, { capture: true });
+    viewport.addEventListener('pointercancel', onPointerUp, { capture: true });
+
     return () => {
-      viewport.removeEventListener('wheel', handleWheelZoom);
-      viewport.removeEventListener('touchstart', onTouchStart);
-      viewport.removeEventListener('touchmove', onTouchMove);
-      viewport.removeEventListener('touchend', onTouchEnd);
+      viewport.removeEventListener('wheel', handleWheel);
+      viewport.removeEventListener('pointerdown', onPointerDown, { capture: true });
+      viewport.removeEventListener('pointermove', onPointerMove, { capture: true });
+      viewport.removeEventListener('pointerup', onPointerUp, { capture: true });
+      viewport.removeEventListener('pointercancel', onPointerUp, { capture: true });
     };
-  }, []);
+  }, [file]); // re-attach when file loads (viewport doesn't exist before file is opened)
 
   return (
     <div className="app-container">
@@ -875,18 +908,27 @@ export default function Home() {
               </div>
             ) : (
               <div className="editor-layout">
-                <Sidebar
-                  file={file}
-                  pageCount={pageCount}
-                  currentPage={currentPage}
-                  onPageChange={(p) => {
-                    if (fabricCanvasRef.current) {
-                      const json = JSON.stringify(fabricCanvasRef.current.toJSON());
-                      annotationHistoryRef.current.set(currentPage, { objects: json });
-                    }
-                    setCurrentPage(p);
-                  }}
-                />
+                {showSidebar && (
+                  <Sidebar
+                    file={file}
+                    pageCount={pageCount}
+                    currentPage={currentPage}
+                    onPageChange={(p) => {
+                      if (fabricCanvasRef.current) {
+                        const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+                        annotationHistoryRef.current.set(currentPage, { objects: json });
+                      }
+                      setCurrentPage(p);
+                    }}
+                  />
+                )}
+                <button
+                  className="sidebar-toggle-btn"
+                  onClick={() => setShowSidebar((v) => !v)}
+                  title={showSidebar ? 'Hide panel' : 'Show panel'}
+                >
+                  {showSidebar ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+                </button>
                 <div className="pdf-viewer-area">
                   <Toolbar
                     activeTool={activeTool}

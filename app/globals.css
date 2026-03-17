@@ -1128,6 +1128,27 @@ body {
   text-decoration: line-through;
 }
 
+/* ──────────── Sidebar Toggle ──────────── */
+.sidebar-toggle-btn {
+  flex-shrink: 0;
+  width: 16px;
+  background: var(--bg-surface);
+  border: none;
+  border-right: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  padding: 0;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* ──────────── Text Layer Selection ──────────── */
 .textLayer {
   user-select: none;
@@ -1162,7 +1183,25 @@ body {
 /* ──────────── Responsive ──────────── */
 @media (max-width: 768px) {
   .sidebar {
-    display: none;
+    position: fixed;
+    left: 0;
+    top: 56px;
+    bottom: 0;
+    z-index: 200;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar-toggle-btn {
+    position: fixed;
+    left: 0;
+    bottom: 72px;
+    z-index: 201;
+    width: 24px;
+    height: 44px;
+    border-radius: 0 6px 6px 0;
+    border-right: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .toolbar {
