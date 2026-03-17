@@ -448,7 +448,7 @@ export default function Home() {
         });
       };
       fc.on('mouse:down', handler);
-    } else if (['rectangle', 'circle', 'line', 'arrow'].includes(activeTool)) {
+    } else if (['rectangle', 'circle', 'line', 'arrow', 'redact'].includes(activeTool)) {
       fc.selection = false;
       fc.forEachObject((obj: FabricObject) => { obj.selectable = false; obj.evented = false; });
       let isDrawing = false;
@@ -491,6 +491,16 @@ export default function Home() {
               selectable: false,
               evented: false,
             });
+          } else if (activeTool === 'redact') {
+            shapeObj = new fabricModule.Rect({
+              left: startX, top: startY,
+              width: 0, height: 0,
+              fill: '#000000',
+              stroke: 'transparent',
+              strokeWidth: 0,
+              selectable: false,
+              evented: false,
+            });
           }
           if (shapeObj) {
             fc.add(shapeObj);
@@ -503,7 +513,7 @@ export default function Home() {
         if (!isDrawing || !shapeObj) return;
         const pointer = getScaledPoint(opt.e);
 
-        if (activeTool === 'rectangle') {
+        if (activeTool === 'rectangle' || activeTool === 'redact') {
           const rect = shapeObj as unknown as Rect;
           rect.set({
             width: Math.abs(pointer.x - startX),
@@ -889,6 +899,136 @@ export default function Home() {
       viewport.removeEventListener('touchcancel', onTouchEnd, { capture: true });
     };
   }, [file]); // re-attach when file loads (viewport doesn't exist before file is opened)
+
+  // ── Laser pointer tool — draws glowing trail that fades after release
+  useEffect(() => {
+    if (activeTool !== 'laser') return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.style.position = 'fixed';
+    canvas.style.zIndex = '10000';
+    canvas.style.pointerEvents = 'auto';
+    canvas.style.cursor = 'crosshair';
+    canvas.style.touchAction = 'none';
+    document.body.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d')!;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const updateSize = () => {
+      const rect = viewport.getBoundingClientRect();
+      canvas.style.left = rect.left + 'px';
+      canvas.style.top = rect.top + 'px';
+      canvas.width = Math.floor(rect.width);
+      canvas.height = Math.floor(rect.height);
+    };
+    updateSize();
+
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let fadeTimer = 0;
+    let fadeAnim = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      e.preventDefault();
+      isDrawing = true;
+      // Reset fade — keep existing drawing, just cancel any in-progress fade
+      clearTimeout(fadeTimer);
+      cancelAnimationFrame(fadeAnim);
+      canvas.style.opacity = '1';
+      const rect = canvas.getBoundingClientRect();
+      lastX = e.clientX - rect.left;
+      lastY = e.clientY - rect.top;
+
+      // Draw initial dot so taps are visible
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 100, 100, 0.9)';
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 20;
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+
+      // Outer glow
+      ctx.save();
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 25;
+      ctx.strokeStyle = 'rgba(255, 50, 50, 0.6)';
+      ctx.lineWidth = 8;
+      ctx.stroke();
+
+      // Mid glow
+      ctx.shadowColor = '#ff2222';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#ff3333';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Bright center
+      ctx.shadowBlur = 4;
+      ctx.strokeStyle = 'rgba(255, 220, 220, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      lastX = x;
+      lastY = y;
+    };
+
+    const onPointerUp = () => {
+      if (!isDrawing) return;
+      isDrawing = false;
+      // Wait 800ms before starting fade, then fade over ~1s
+      fadeTimer = window.setTimeout(() => {
+        let opacity = 1;
+        const fade = () => {
+          opacity -= 0.02;
+          if (opacity <= 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.style.opacity = '1';
+            return;
+          }
+          canvas.style.opacity = String(opacity);
+          fadeAnim = requestAnimationFrame(fade);
+        };
+        fadeAnim = requestAnimationFrame(fade);
+      }, 800);
+    };
+
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointerleave', onPointerUp);
+    window.addEventListener('resize', updateSize);
+
+    return () => {
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointerleave', onPointerUp);
+      window.removeEventListener('resize', updateSize);
+      clearTimeout(fadeTimer);
+      cancelAnimationFrame(fadeAnim);
+      if (canvas.parentElement) canvas.parentElement.removeChild(canvas);
+    };
+  }, [activeTool]);
 
   return (
     <div className="app-container">

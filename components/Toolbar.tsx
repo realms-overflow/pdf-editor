@@ -18,6 +18,8 @@ import {
     Eraser,
     ImagePlus,
     TextSelect,
+    Wand,
+    EyeOff,
 } from 'lucide-react';
 
 export type AnnotationTool =
@@ -31,7 +33,9 @@ export type AnnotationTool =
     | 'circle'
     | 'arrow'
     | 'line'
-    | 'eraser';
+    | 'eraser'
+    | 'laser'
+    | 'redact';
 
 interface ToolbarProps {
     activeTool: AnnotationTool;
@@ -62,7 +66,9 @@ const TOOLS: { id: AnnotationTool; icon: React.ReactNode; label: string }[] = [
     { id: 'circle', icon: <Circle />, label: 'Circle' },
     { id: 'arrow', icon: <ArrowRight />, label: 'Arrow' },
     { id: 'line', icon: <Minus />, label: 'Line' },
+    { id: 'redact', icon: <EyeOff />, label: 'Redact' },
     { id: 'eraser', icon: <Eraser />, label: 'Eraser' },
+    { id: 'laser', icon: <Wand />, label: 'Laser' },
 ];
 
 export default function Toolbar({
