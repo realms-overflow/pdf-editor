@@ -16,11 +16,14 @@ import {
     Trash2,
     Download,
     Eraser,
+    ImagePlus,
+    TextSelect,
 } from 'lucide-react';
 
 export type AnnotationTool =
     | 'select'
     | 'hand'
+    | 'textselect'
     | 'freehand'
     | 'highlight'
     | 'text'
@@ -41,6 +44,7 @@ interface ToolbarProps {
     onRedo: () => void;
     onClear: () => void;
     onExport: () => void;
+    onImageInsert: () => void;
     canUndo: boolean;
     canRedo: boolean;
 }
@@ -50,6 +54,7 @@ const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'
 const TOOLS: { id: AnnotationTool; icon: React.ReactNode; label: string }[] = [
     { id: 'select', icon: <MousePointer2 />, label: 'Select' },
     { id: 'hand', icon: <Hand />, label: 'Hand' },
+    { id: 'textselect', icon: <TextSelect />, label: 'Text Select' },
     { id: 'freehand', icon: <Pencil />, label: 'Draw' },
     { id: 'highlight', icon: <Highlighter />, label: 'Highlight' },
     { id: 'text', icon: <Type />, label: 'Text' },
@@ -71,6 +76,7 @@ export default function Toolbar({
     onRedo,
     onClear,
     onExport,
+    onImageInsert,
     canUndo,
     canRedo,
 }: ToolbarProps) {
@@ -84,6 +90,7 @@ export default function Toolbar({
                         onClick={() => onToolChange(tool.id)}
                     >
                         {tool.icon}
+                        <span className="tooltip">{tool.label}</span>
                     </button>
                 ))}
             </div>
@@ -98,6 +105,7 @@ export default function Toolbar({
                     style={{ opacity: canUndo ? 1 : 0.4 }}
                 >
                     <Undo2 />
+                    <span className="tooltip">Undo</span>
                 </button>
                 <button
                     className="tool-btn"
@@ -106,9 +114,15 @@ export default function Toolbar({
                     style={{ opacity: canRedo ? 1 : 0.4 }}
                 >
                     <Redo2 />
+                    <span className="tooltip">Redo</span>
                 </button>
                 <button className="tool-btn" onClick={onClear}>
                     <Trash2 />
+                    <span className="tooltip">Clear</span>
+                </button>
+                <button className="tool-btn" onClick={onImageInsert}>
+                    <ImagePlus />
+                    <span className="tooltip">Image</span>
                 </button>
             </div>
 

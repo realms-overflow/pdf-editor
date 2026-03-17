@@ -16,6 +16,7 @@ interface PDFViewerProps {
     onPageChange: (page: number) => void;
     onPageLoaded?: (dimensions: { width: number; height: number; unscaledWidth: number; unscaledHeight: number }) => void;
     isHandTool?: boolean;
+    isTextSelectMode?: boolean;
 }
 
 export default function PDFViewer({
@@ -26,8 +27,10 @@ export default function PDFViewer({
     onPageChange,
     onPageLoaded,
     isHandTool,
+    isTextSelectMode,
 }: PDFViewerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const textLayerRef = useRef<HTMLDivElement>(null);
     const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
     const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
     const [dimensions, setDimensions] = useState<{ width: number; height: number; unscaledWidth: number; unscaledHeight: number } | null>(null);
@@ -64,6 +67,32 @@ export default function PDFViewer({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 renderTaskRef.current = page.render(renderContext as any);
                 await renderTaskRef.current.promise;
+                
+                // Render text layer overlay for text selection
+                const textContent = await page.getTextContent();
+                const textLayerDiv = textLayerRef.current;
+                
+                if (textLayerDiv && typeof window !== 'undefined') {
+                    // Empty the previous text layer content
+                    textLayerDiv.innerHTML = '';
+                    
+                    try {
+                        // Dynamically import the viewer module for text layer rendering
+                        const pdfjsViewer = await import('pdfjs-dist/web/pdf_viewer.mjs');
+                        
+                        const textLayer = new pdfjsViewer.TextLayerBuilder({
+                            pdfPage: page,
+                            highlighter: undefined,
+                            accessibilityManager: undefined,
+                        });
+                        
+                        textLayerDiv.appendChild(textLayer.div);
+                        await textLayer.render({ viewport });
+                    } catch (e) {
+                         console.error('Error rendering text layer:', e);
+                    }
+                }
+
                 setDimensions({ 
                     width: viewport.width, 
                     height: viewport.height,
@@ -115,7 +144,7 @@ export default function PDFViewer({
 
     return (
         <div
-            className="pdf-page-container"
+            className={`pdf-page-container${isTextSelectMode ? ' text-select-mode' : ''}`}
             style={{
                 position: 'relative',
                 width: dimensions ? dimensions.width + 'px' : 'auto',
@@ -123,6 +152,23 @@ export default function PDFViewer({
             }}
         >
             <canvas ref={canvasRef} style={{ display: 'block' }} />
+            
+            {/* Text Layer for Selection */}
+            <div
+                ref={textLayerRef}
+                className="textLayer"
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    overflow: 'hidden',
+                    lineHeight: 1.0,
+                    /* We inherit purely the scale from the container, letting PDF.js style individual spans */
+                }}
+            />
+
             {/* Annotation overlay — Fabric.js will be mounted here by page.tsx */}
             <div
                 id="annotation-container"
@@ -138,7 +184,8 @@ export default function PDFViewer({
                     transform: `scale(${zoom})`,
                     transformOrigin: 'top left',
                     zIndex: 10,
-                    pointerEvents: isHandTool ? 'none' : 'auto',
+                    pointerEvents: (isHandTool || isTextSelectMode) ? 'none' : 'auto',
+                    touchAction: 'none',
                 }}
             />
         </div>

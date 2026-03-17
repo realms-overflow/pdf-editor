@@ -645,24 +645,26 @@ body {
 
 .tool-btn .tooltip {
   position: absolute;
-  bottom: -30px;
+  bottom: -28px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--bg-elevated);
   color: var(--text-primary);
   font-size: 11px;
-  padding: 4px 8px;
+  padding: 3px 7px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--transition-fast);
+  transition: opacity 0.1s;
+  transition-delay: 0s;
   z-index: 200;
   border: 1px solid var(--border-subtle);
 }
 
 .tool-btn:hover .tooltip {
   opacity: 1;
+  transition-delay: 0.55s;
 }
 
 /* Color picker in toolbar */
@@ -1126,6 +1128,37 @@ body {
   text-decoration: line-through;
 }
 
+/* ──────────── Text Layer Selection ──────────── */
+.textLayer {
+  user-select: none;
+  pointer-events: none;
+}
+
+.textLayer span,
+.textLayer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.text-select-mode .textLayer {
+  pointer-events: auto;
+  user-select: text;
+  z-index: 20;
+  cursor: text;
+}
+
+.text-select-mode .textLayer span {
+  user-select: text;
+}
+
+.text-select-mode .textLayer span::selection {
+  background: rgba(59, 130, 246, 0.35);
+  color: transparent;
+}
+
 /* ──────────── Responsive ──────────── */
 @media (max-width: 768px) {
   .sidebar {
@@ -1133,7 +1166,34 @@ body {
   }
 
   .toolbar {
-    padding: 4px 8px;
+    padding: 4px 6px;
+    overflow-x: auto;
+    overflow-y: visible;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    gap: 2px;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tool-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+  }
+
+  .toolbar-separator {
+    flex-shrink: 0;
+  }
+
+  .stroke-width-selector {
+    flex-shrink: 0;
+  }
+
+  .color-picker-wrapper {
+    flex-shrink: 0;
   }
 
   .app-header {

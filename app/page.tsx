@@ -45,6 +45,8 @@ export default function Home() {
   const [initialFitDone, setInitialFitDone] = useState(false);
 
   const [activeTool, setActiveTool] = useState<AnnotationTool>('select');
+  const activeToolRef = useRef<AnnotationTool>('select');
+  useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   const [activeColor, setActiveColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(3);
 
@@ -67,6 +69,7 @@ export default function Home() {
 
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastIdRef = useRef(0);
 
@@ -570,6 +573,7 @@ export default function Home() {
       fc.on('mouse:move', moveHandler);
       fc.on('mouse:up', upHandler);
     }
+
   }, [activeTool, activeColor, strokeWidth, fabricReady]);
 
   const handleUndo = async () => {
@@ -695,6 +699,41 @@ export default function Home() {
     }
   }, [file, currentPage, showToast]);
 
+  const handleImageInsert = useCallback(() => {
+    imageInputRef.current?.click();
+  }, []);
+
+  const handleImageFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const imgFile = e.target.files?.[0];
+      if (!imgFile || !fabricCanvasRef.current) return;
+      e.target.value = '';
+
+      const url = URL.createObjectURL(imgFile);
+      const { FabricImage } = await import('fabric');
+      const fc = fabricCanvasRef.current;
+
+      FabricImage.fromURL(url).then((img) => {
+        URL.revokeObjectURL(url);
+        const maxSize = Math.min(fc.width ?? 400, fc.height ?? 400) * 0.5;
+        const scale = Math.min(maxSize / (img.width ?? 1), maxSize / (img.height ?? 1), 1);
+        img.scale(scale);
+        img.set({
+          left: ((fc.width ?? 0) - (img.width ?? 0) * scale) / 2,
+          top: ((fc.height ?? 0) - (img.height ?? 0) * scale) / 2,
+          selectable: true,
+          evented: true,
+        });
+        fc.add(img);
+        fc.setActiveObject(img);
+        fc.renderAll();
+        setActiveTool('select');
+        showToast('Image added. Drag to reposition.', 'success');
+      });
+    },
+    [showToast]
+  );
+
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 4));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.25, 0.5));
 
@@ -718,11 +757,7 @@ export default function Home() {
     }
   };
 
-  // ── Pinch to Zoom
-  const touchStartDistRef = useRef(0);
-  const touchStartZoomRef = useRef(zoom);
-
-  // ── Mouse Wheel Zoom
+  // ── Mouse Wheel Zoom + Touch (Pinch Zoom & Hand Tool Pan)
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -737,33 +772,62 @@ export default function Home() {
       }
     };
 
-    viewport.addEventListener('wheel', handleWheelZoom, { passive: false });
-    return () => viewport.removeEventListener('wheel', handleWheelZoom);
-  }, []);
+    let pinchStartDist = 0;
+    let pinchStartZoom = 1;
+    let isPinching = false;
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 2) {
-      const d = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      touchStartDistRef.current = d;
-      touchStartZoomRef.current = zoom;
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 2) {
-      const d = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      if (touchStartDistRef.current > 0) {
-        const scale = d / touchStartDistRef.current;
-        setZoom(Math.min(Math.max(touchStartZoomRef.current * scale, 0.5), 4));
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isPinching = true;
+        pinchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        pinchStartZoom = zoomRef.current;
+        e.preventDefault();
+      } else if (e.touches.length === 1 && activeToolRef.current === 'hand') {
+        isPanningRef.current = true;
+        panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        scrollStartRef.current = { x: viewport.scrollLeft, y: viewport.scrollTop };
       }
-    }
-  };
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (isPinching && e.touches.length === 2) {
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (pinchStartDist > 0) {
+          const scale = d / pinchStartDist;
+          setZoom(Math.min(Math.max(pinchStartZoom * scale, 0.5), 4));
+        }
+        e.preventDefault();
+      } else if (!isPinching && isPanningRef.current && e.touches.length === 1) {
+        const dx = e.touches[0].clientX - panStartRef.current.x;
+        const dy = e.touches[0].clientY - panStartRef.current.y;
+        viewport.scrollLeft = scrollStartRef.current.x - dx;
+        viewport.scrollTop = scrollStartRef.current.y - dy;
+        e.preventDefault();
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) isPinching = false;
+      if (e.touches.length === 0) isPanningRef.current = false;
+    };
+
+    viewport.addEventListener('wheel', handleWheelZoom, { passive: false });
+    viewport.addEventListener('touchstart', onTouchStart, { passive: false });
+    viewport.addEventListener('touchmove', onTouchMove, { passive: false });
+    viewport.addEventListener('touchend', onTouchEnd);
+    return () => {
+      viewport.removeEventListener('wheel', handleWheelZoom);
+      viewport.removeEventListener('touchstart', onTouchStart);
+      viewport.removeEventListener('touchmove', onTouchMove);
+      viewport.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
 
   return (
     <div className="app-container">
@@ -835,16 +899,22 @@ export default function Home() {
                     onRedo={handleRedo}
                     onClear={handleClear}
                     onExport={handleExport}
+                    onImageInsert={handleImageInsert}
                     canUndo={canUndo}
                     canRedo={canRedo}
+                  />
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handleImageFile}
                   />
                   <div
                     className="pdf-viewport"
                     ref={viewportRef}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
                     style={{
-                      touchAction: 'pan-x pan-y',
+                      touchAction: 'none',
                       cursor: activeTool === 'hand' ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
                     }}
                     onMouseDown={(e) => {
@@ -883,6 +953,7 @@ export default function Home() {
                         }
                       }}
                       isHandTool={activeTool === 'hand'}
+                      isTextSelectMode={activeTool === 'textselect'}
                     />
                   </div>
                   <div className="status-bar">
