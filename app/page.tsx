@@ -12,17 +12,19 @@ import {
   Trash2,
   Merge,
   Pen,
+  FileType,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { mergePDFs, removePagesFromPDF, formatFileSize, downloadBlob } from '@/lib/pdfUtils';
 import Toolbar, { AnnotationTool } from '@/components/Toolbar';
 import MergePanel from '@/components/MergePanel';
 import RemovePagesPanel from '@/components/RemovePagesPanel';
+import WordToPdfPanel from '@/components/WordToPdfPanel';
 
 const PDFViewer = dynamic(() => import('@/components/PDFViewer'), { ssr: false });
 const Sidebar = dynamic(() => import('@/components/Sidebar'), { ssr: false });
 
-type TabType = 'editor' | 'merge' | 'remove';
+type TabType = 'editor' | 'merge' | 'remove' | 'wordtopdf';
 
 interface Toast {
   id: number;
@@ -1047,6 +1049,9 @@ export default function Home() {
           <button className={`tab-btn ${activeTab === 'remove' ? 'active' : ''}`} onClick={() => setActiveTab('remove')}>
             <Trash2 size={15} /><span>Remove</span>
           </button>
+          <button className={`tab-btn ${activeTab === 'wordtopdf' ? 'active' : ''}`} onClick={() => setActiveTab('wordtopdf')}>
+            <FileType size={15} /><span>Word to PDF</span>
+          </button>
         </nav>
         <div className="header-actions">
           <button className="btn btn-sm" onClick={() => fileInputRef.current?.click()}>
@@ -1189,6 +1194,7 @@ export default function Home() {
         )}
         {activeTab === 'merge' && <MergePanel onToast={showToast} />}
         {activeTab === 'remove' && <RemovePagesPanel onToast={showToast} />}
+        {activeTab === 'wordtopdf' && <WordToPdfPanel onToast={showToast} />}
       </div>
 
       {toasts.length > 0 && (
