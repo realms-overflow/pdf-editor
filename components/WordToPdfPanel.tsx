@@ -24,24 +24,92 @@ export default function WordToPdfPanel({ onToast }: WordToPdfPanelProps) {
         setFile(f);
     };
 
+    const convertClientSide = async (f: File): Promise<Uint8Array> => {
+        const { renderAsync } = await import('docx-preview');
+        const { jsPDF } = await import('jspdf');
+        const html2canvas = (await import('html2canvas')).default;
+
+        const A4_W = 794;
+        const A4_H = 1123;
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99998;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-family:sans-serif;';
+        overlay.textContent = 'Converting to PDF…';
+        document.body.appendChild(overlay);
+
+        const renderBox = document.createElement('div');
+        renderBox.style.cssText = `position:fixed;left:0;top:0;width:${A4_W}px;height:100vh;overflow:auto;background:#fff;z-index:99997;`;
+        document.body.appendChild(renderBox);
+
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+            .docx-wrapper { padding:0!important; margin:0!important; background:white!important; }
+            .docx-wrapper > section { width:${A4_W}px!important; min-height:${A4_H}px!important; margin:0!important; box-shadow:none!important; box-sizing:border-box!important; }
+        `;
+        renderBox.appendChild(styleEl);
+
+        const arrayBuffer = await f.arrayBuffer();
+        await renderAsync(arrayBuffer, renderBox, undefined, {
+            inWrapper: true, ignoreWidth: false, ignoreHeight: false,
+            ignoreFonts: false, breakPages: true, ignoreLastRenderedPageBreak: false,
+        });
+
+        await new Promise(r => setTimeout(r, 800));
+
+        const sections = renderBox.querySelectorAll('.docx-wrapper > section');
+        const elements = sections.length > 0 ? Array.from(sections) as HTMLElement[] : [renderBox];
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfW = pdf.internal.pageSize.getWidth();
+        const pdfH = pdf.internal.pageSize.getHeight();
+        const SCALE = 2;
+
+        let firstPage = true;
+        for (const el of elements) {
+            const canvas = await html2canvas(el, {
+                scale: SCALE, useCORS: true, backgroundColor: '#ffffff',
+                logging: false, width: A4_W, windowWidth: A4_W,
+            });
+            const scaledPageH = A4_H * SCALE;
+            const totalPages = Math.max(1, Math.ceil(canvas.height / scaledPageH));
+            for (let p = 0; p < totalPages; p++) {
+                if (!firstPage) pdf.addPage();
+                firstPage = false;
+                const sliceH = Math.min(scaledPageH, canvas.height - p * scaledPageH);
+                const pageCanvas = document.createElement('canvas');
+                pageCanvas.width = A4_W * SCALE;
+                pageCanvas.height = scaledPageH;
+                const ctx = pageCanvas.getContext('2d')!;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+                ctx.drawImage(canvas, 0, p * scaledPageH, A4_W * SCALE, sliceH, 0, 0, A4_W * SCALE, sliceH);
+                pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfW, pdfH);
+            }
+        }
+
+        document.body.removeChild(renderBox);
+        document.body.removeChild(overlay);
+        return new Uint8Array(pdf.output('arraybuffer'));
+    };
+
     const handleConvert = async () => {
         if (!file) return;
         setConverting(true);
         try {
+            // Try server-side (LibreOffice) first
             const formData = new FormData();
             formData.append('file', file);
+            const res = await fetch('/api/convert-word', { method: 'POST', body: formData });
 
-            const res = await fetch('/api/convert-word', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({ error: 'Conversion failed' }));
-                throw new Error(err.error || 'Conversion failed');
+            if (res.ok) {
+                const pdfBytes = new Uint8Array(await res.arrayBuffer());
+                const pdfName = file.name.replace(/\.docx$/i, '') + '.pdf';
+                await downloadBlob(pdfBytes, pdfName);
+                onToast('PDF created successfully!', 'success');
+                return;
             }
 
-            const pdfBytes = new Uint8Array(await res.arrayBuffer());
+            // Fallback to client-side conversion
+            const pdfBytes = await convertClientSide(file);
             const pdfName = file.name.replace(/\.docx$/i, '') + '.pdf';
             await downloadBlob(pdfBytes, pdfName);
             onToast('PDF created successfully!', 'success');
@@ -63,7 +131,6 @@ export default function WordToPdfPanel({ onToast }: WordToPdfPanelProps) {
                 <p className="panel-description">
                     Convert Word documents (.docx) to PDF format.
                 </p>
-
                 <div
                     className={`panel-dropzone ${dragOver ? 'dragging' : ''}`}
                     onClick={() => inputRef.current?.click()}
@@ -73,15 +140,8 @@ export default function WordToPdfPanel({ onToast }: WordToPdfPanelProps) {
                 >
                     <Upload size={28} />
                     <p>Drop a Word file here or click to browse</p>
-                    <input
-                        ref={inputRef}
-                        type="file"
-                        accept=".docx"
-                        hidden
-                        onChange={(e) => handleFile(e.target.files)}
-                    />
+                    <input ref={inputRef} type="file" accept=".docx" hidden onChange={(e) => handleFile(e.target.files)} />
                 </div>
-
                 {file && (
                     <div className="file-list">
                         <div className="file-item">
@@ -93,29 +153,13 @@ export default function WordToPdfPanel({ onToast }: WordToPdfPanelProps) {
                         </div>
                     </div>
                 )}
-
                 <div className="panel-actions">
-                    {file && (
-                        <button className="btn" onClick={() => setFile(null)}>
-                            Clear
-                        </button>
-                    )}
-                    <button
-                        className="btn btn-primary"
-                        onClick={handleConvert}
-                        disabled={converting || !file}
-                        style={{ opacity: !file ? 0.5 : 1 }}
-                    >
+                    {file && (<button className="btn" onClick={() => setFile(null)}>Clear</button>)}
+                    <button className="btn btn-primary" onClick={handleConvert} disabled={converting || !file} style={{ opacity: !file ? 0.5 : 1 }}>
                         {converting ? (
-                            <>
-                                <Loader2 size={16} className="spin" style={{ animation: 'spin 0.6s linear infinite' }} />
-                                Converting...
-                            </>
+                            <><Loader2 size={16} className="spin" style={{ animation: 'spin 0.6s linear infinite' }} /> Converting...</>
                         ) : (
-                            <>
-                                <Download size={16} />
-                                Convert to PDF
-                            </>
+                            <><Download size={16} /> Convert to PDF</>
                         )}
                     </button>
                 </div>
