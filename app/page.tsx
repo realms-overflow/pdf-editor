@@ -134,11 +134,17 @@ export default function Home() {
   const initLockRef = useRef(false);
 
   useEffect(() => {
-    if (!file) return;
+    if (!file || activeTab !== 'editor') return;
 
     let cancelled = false;
     initLockRef.current = false;
     setFabricReady(false);
+
+    // Dispose any stale Fabric canvas from a previous mount cycle
+    if (fabricCanvasRef.current) {
+      try { fabricCanvasRef.current.dispose(); } catch (_) { /* already disposed */ }
+      fabricCanvasRef.current = null;
+    }
 
     const tryInit = async () => {
       if (cancelled || initLockRef.current) return;
@@ -191,6 +197,16 @@ export default function Home() {
       });
 
       fabricCanvasRef.current = fc;
+
+      // Restore saved annotations for the current page
+      const savedState = annotationHistoryRef.current.get(currentPage);
+      if (savedState) {
+        try {
+          await fc.loadFromJSON(savedState.objects);
+          fc.renderAll();
+        } catch (_) { /* ignore parse errors */ }
+      }
+
       setFabricReady(true);
 
       // Block finger pointer events on Fabric's canvas ONLY during pinch gestures.
@@ -242,7 +258,8 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [file]);
+    // Re-run when file changes OR when switching back to editor tab
+  }, [file, activeTab, currentPage]);
 
   // ── Save / restore annotations when switching pages
   useEffect(() => {
@@ -1042,19 +1059,46 @@ export default function Home() {
           <span>PDF Royale</span>
         </div>
         <nav className="tab-nav">
-          <button className={`tab-btn ${activeTab === 'editor' ? 'active' : ''}`} onClick={() => setActiveTab('editor')}>
+          <button className={`tab-btn ${activeTab === 'editor' ? 'active' : ''}`} onClick={() => {
+            setActiveTab('editor');
+          }}>
             <Pen size={15} /><span>Editor</span>
           </button>
-          <button className={`tab-btn ${activeTab === 'merge' ? 'active' : ''}`} onClick={() => setActiveTab('merge')}>
+          <button className={`tab-btn ${activeTab === 'merge' ? 'active' : ''}`} onClick={() => {
+            // Save annotations before leaving editor
+            if (activeTab === 'editor' && fabricCanvasRef.current) {
+              const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+              annotationHistoryRef.current.set(currentPage, { objects: json });
+            }
+            setActiveTab('merge');
+          }}>
             <Merge size={15} /><span>Merge</span>
           </button>
-          <button className={`tab-btn ${activeTab === 'remove' ? 'active' : ''}`} onClick={() => setActiveTab('remove')}>
+          <button className={`tab-btn ${activeTab === 'remove' ? 'active' : ''}`} onClick={() => {
+            if (activeTab === 'editor' && fabricCanvasRef.current) {
+              const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+              annotationHistoryRef.current.set(currentPage, { objects: json });
+            }
+            setActiveTab('remove');
+          }}>
             <Trash2 size={15} /><span>Remove</span>
           </button>
-          <button className={`tab-btn ${activeTab === 'wordtopdf' ? 'active' : ''}`} onClick={() => setActiveTab('wordtopdf')}>
+          <button className={`tab-btn ${activeTab === 'wordtopdf' ? 'active' : ''}`} onClick={() => {
+            if (activeTab === 'editor' && fabricCanvasRef.current) {
+              const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+              annotationHistoryRef.current.set(currentPage, { objects: json });
+            }
+            setActiveTab('wordtopdf');
+          }}>
             <FileType size={15} /><span>Word to PDF</span>
           </button>
-          <button className={`tab-btn ${activeTab === 'pdftoword' ? 'active' : ''}`} onClick={() => setActiveTab('pdftoword')}>
+          <button className={`tab-btn ${activeTab === 'pdftoword' ? 'active' : ''}`} onClick={() => {
+            if (activeTab === 'editor' && fabricCanvasRef.current) {
+              const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+              annotationHistoryRef.current.set(currentPage, { objects: json });
+            }
+            setActiveTab('pdftoword');
+          }}>
             <FileOutput size={15} /><span>PDF to Word</span>
           </button>
         </nav>

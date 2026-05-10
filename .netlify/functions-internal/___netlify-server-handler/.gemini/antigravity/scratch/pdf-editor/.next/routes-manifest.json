@@ -41,6 +41,18 @@
       "namedRegex": "^/_not\\-found(?:/)?$"
     },
     {
+      "page": "/api/convert-pdf-to-word",
+      "regex": "^/api/convert\\-pdf\\-to\\-word(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/convert\\-pdf\\-to\\-word(?:/)?$"
+    },
+    {
+      "page": "/api/convert-word",
+      "regex": "^/api/convert\\-word(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/convert\\-word(?:/)?$"
+    },
+    {
       "page": "/api/download",
       "regex": "^/api/download(?:/)?$",
       "routeKeys": {},

@@ -1,6 +1,8 @@
 {
   "/_global-error/page": "/_global-error",
   "/_not-found/page": "/_not-found",
+  "/api/convert-pdf-to-word/route": "/api/convert-pdf-to-word",
+  "/api/convert-word/route": "/api/convert-word",
   "/api/download/route": "/api/download",
   "/icon.svg/route": "/icon.svg",
   "/page": "/"

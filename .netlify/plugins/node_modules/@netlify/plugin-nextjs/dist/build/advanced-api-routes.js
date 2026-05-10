@@ -147,7 +147,14 @@ var extractConfigFromFile = async (apiFilePath, appDir) => {
   }
   const ast = await parseModule(apiFilePath, fileContent);
   try {
-    return extractExportedConstValue(ast, "config");
+    const extracted = extractExportedConstValue(ast, "config");
+    if (!extracted || typeof extracted !== "object") {
+      return {};
+    }
+    if ("value" in extracted) {
+      return extracted.value;
+    }
+    return extracted;
   } catch {
     return {};
   }

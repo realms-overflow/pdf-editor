@@ -29,6 +29,20 @@ module.exports = __toCommonJS(regional_blob_store_exports);
 var getString = (input) => typeof input === "string" ? input : JSON.stringify(input);
 var base64Decode = globalThis.Buffer ? (input) => Buffer.from(input, "base64").toString() : (input) => atob(input);
 var base64Encode = globalThis.Buffer ? (input) => Buffer.from(getString(input)).toString("base64") : (input) => btoa(getString(input));
+var getEnvironment = () => {
+  const { Deno, Netlify, process: process2 } = globalThis;
+  return Netlify?.env ?? Deno?.env ?? {
+    delete: (key) => delete process2?.env[key],
+    get: (key) => process2?.env[key],
+    has: (key) => Boolean(process2?.env[key]),
+    set: (key, value) => {
+      if (process2?.env) {
+        process2.env[key] = value;
+      }
+    },
+    toObject: () => process2?.env ?? {}
+  };
+};
 
 // node_modules/@netlify/otel/dist/main.js
 var GET_TRACER = "__netlify__getTracer";
@@ -46,21 +60,7 @@ function withActiveSpan(tracer, name, optionsOrFn, contextOrFn, fn) {
   return tracer.withActiveSpan(name, optionsOrFn, contextOrFn, func);
 }
 
-// node_modules/@netlify/blobs/dist/chunk-3OMJJ4EG.js
-var getEnvironment = () => {
-  const { Deno, Netlify, process: process2 } = globalThis;
-  return Netlify?.env ?? Deno?.env ?? {
-    delete: (key) => delete process2?.env[key],
-    get: (key) => process2?.env[key],
-    has: (key) => Boolean(process2?.env[key]),
-    set: (key, value) => {
-      if (process2?.env) {
-        process2.env[key] = value;
-      }
-    },
-    toObject: () => process2?.env ?? {}
-  };
-};
+// node_modules/@netlify/blobs/dist/chunk-YAGWSQMB.js
 var getEnvironmentContext = () => {
   const context = globalThis.netlifyBlobsContext || getEnvironment().get("NETLIFY_BLOBS_CONTEXT");
   if (typeof context !== "string" || !context) {
