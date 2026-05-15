@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -25,11 +24,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <Script
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5656375981131921"
           crossOrigin="anonymous"
-          strategy="beforeInteractive"
         />
       </head>
       <body>
@@ -38,3 +36,4 @@ export default function RootLayout({
     </html>
   );
 }
+
