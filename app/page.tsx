@@ -760,12 +760,17 @@ export default function Home() {
       if (!imgFile || !fabricCanvasRef.current) return;
       e.target.value = '';
 
-      const url = URL.createObjectURL(imgFile);
+      // Convert to data URL so the image survives JSON serialization during export
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(imgFile);
+      });
+
       const { FabricImage } = await import('fabric');
       const fc = fabricCanvasRef.current;
 
-      FabricImage.fromURL(url).then((img) => {
-        URL.revokeObjectURL(url);
+      FabricImage.fromURL(dataUrl).then((img) => {
         const maxSize = Math.min(fc.width ?? 400, fc.height ?? 400) * 0.5;
         const scale = Math.min(maxSize / (img.width ?? 1), maxSize / (img.height ?? 1), 1);
         img.scale(scale);
